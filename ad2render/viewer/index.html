@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ad2render</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+<link rel="stylesheet" href="/static/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "/static/vendor/three/three.module.js",
+    "three/addons/": "/static/vendor/three/addons/"
+  }
+}
+</script>
+</head>
+<body>
+<aside id="sidebar">
+  <header class="brand">
+    <span class="logo">AD2</span>
+    <div>
+      <h1>ad2render</h1>
+      <p class="muted">Advanced Duplicator 2 viewer</p>
+    </div>
+  </header>
+
+  <section>
+    <div class="local-only">
+      <label class="btn primary file-btn">
+        <input type="file" id="file-input" accept=".txt">
+        Open dupe…
+      </label>
+      <p class="muted small">or drop an AD2 <code>.txt</code> file on the viewport</p>
+      <div id="file-list-wrap" hidden>
+        <input type="search" id="file-filter" placeholder="Filter dupes on the server…">
+        <ul id="file-list"></ul>
+      </div>
+    </div>
+    <dl id="info" hidden></dl>
+    <div id="warnings"></div>
+    <div id="links"></div>
+  </section>
+
+  <section>
+    <h2>View</h2>
+    <div class="segmented" id="mode" role="radiogroup" aria-label="Display mode">
+      <button data-mode="wire" class="active" role="radio" aria-checked="true">Wireframe</button>
+      <button data-mode="hidden" role="radio" aria-checked="false">Hidden line</button>
+      <button data-mode="solid" role="radio" aria-checked="false">Solid</button>
+    </div>
+    <div class="presets">
+      <button data-view="iso" title="Isometric">Iso</button>
+      <button data-view="iso2" title="Isometric from the opposite side">Iso 2</button>
+      <button data-view="front">Front</button>
+      <button data-view="side">Side</button>
+      <button data-view="top">Top</button>
+      <button data-view="fit" title="Frame the whole build (F)">Fit</button>
+      <button data-view="reset" class="wide" title="Default view and field of view (Home)">Reset view</button>
+    </div>
+    <label class="row">FOV <input type="range" id="fov" min="10" max="90" value="40"><output id="fov-out">40°</output></label>
+    <label class="row fd-row">Ground
+      <select id="ground" title="Also used in renders (except the grid)">
+        <option value="grid">Grid</option>
+        <option value="grass">Grass</option>
+        <option value="concrete">Concrete</option>
+        <option value="dirt">Dirt</option>
+        <option value="solid">Solid colour</option>
+        <option value="none">None</option>
+      </select>
+      <input type="color" id="ground-color" value="#6e6e6e" aria-label="Ground colour" hidden>
+    </label>
+    <label class="row fd-row">Fading door
+      <select id="fading-doors" title="Applies to fading doors and other transparent props. Also used in renders">
+        <option value="solid" title="Closed, as in game">Solid</option>
+        <option value="ghost" title="See-through">Ghost</option>
+        <option value="hidden">Hidden</option>
+      </select>
+      <output id="fading-count"></output>
+    </label>
+    <label class="check" title="Welds, ropes, axes, no-collides: physical links between props"><input type="checkbox" id="show-constraints"> Constraints</label>
+    <label class="check" title="Buttons and keypads that open fading doors (by numpad key)"><input type="checkbox" id="show-links" checked> Buttons → doors</label>
+    <label class="check"><input type="checkbox" id="shadows" checked> Shadows</label>
+  </section>
+
+  <section>
+    <h2>Render</h2>
+    <div class="grid2">
+      <label>Width
+        <input type="number" id="width" min="480" max="1920" step="16" value="1280" title="480 to 1920 px">
+      </label>
+      <label>Height
+        <input type="text" id="height" readonly tabindex="-1" title="Follows the viewport aspect ratio (480 to 1920 px)">
+      </label>
+    </div>
+    <div class="row bg-row">
+      <label class="check"><input type="checkbox" id="bg-transparent"> Transparent background</label>
+      <input type="color" id="bg-color" value="#2b2f36" aria-label="Background colour">
+    </div>
+    <label class="check"><input type="checkbox" id="render-constraints"> Draw constraints</label>
+    <button id="render-btn" class="btn primary big" disabled>Render this view <kbd>R</kbd></button>
+    <p id="render-status" class="status muted small" aria-live="polite"></p>
+  </section>
+
+  <section id="results-section" hidden>
+    <div class="section-head">
+      <h2>Renders</h2>
+      <button id="clear-results" class="btn small-btn" title="Remove all renders from the list">Clear</button>
+    </div>
+    <ul id="results"></ul>
+  </section>
+</aside>
+
+<main id="viewport">
+  <canvas id="canvas"></canvas>
+  <span id="gpu-badge" class="gpu-badge" hidden></span>
+  <div id="tip" role="tooltip" hidden></div>
+  <img id="overlay" alt="" hidden>
+  <div id="overlay-bar" hidden>
+    <span>Render overlay</span>
+    <input type="range" id="overlay-opacity" min="0" max="100" value="50" aria-label="Overlay opacity">
+    <button id="overlay-close" class="btn">Hide</button>
+  </div>
+  <div id="empty" class="center-msg">
+    <div class="drop-icon">⬇</div>
+    <p><strong>Drop an AD2 dupe here</strong></p>
+    <p class="muted">or click <em>Open dupe…</em></p>
+  </div>
+  <div id="loading" class="center-msg" hidden><div class="spinner"></div><p id="loading-text">Loading…</p></div>
+  <div id="drop-zone" hidden><p>Release to load</p></div>
+  <p class="hint">Drag to orbit · Right button to pan · Wheel to zoom · <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> move, <kbd>PgUp</kbd><kbd>PgDn</kbd> up/down, <kbd>Shift</kbd> faster · <kbd>F</kbd> fit · <kbd>Home</kbd> reset · <kbd>R</kbd> render</p>
+</main>
+
+<div id="rotate-overlay" role="status" aria-live="polite">
+  <svg class="rotate-icon" viewBox="-2 -2 68 68" width="80" height="80" aria-hidden="true">
+    <g class="phone">
+      <rect x="22" y="12" width="20" height="40" rx="4" fill="none" stroke="currentColor" stroke-width="3"/>
+      <line x1="29" y1="46" x2="35" y2="46" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    </g>
+    <path d="M59.0 32.0 A27 27 0 0 0 37.6 5.6" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
+    <path d="M32.0 5.0 L38.5 1.2 L36.7 10.0 Z" fill="var(--accent)"/>
+  </svg>
+  <p>Rotate your device to landscape to continue</p>
+</div>
+
+<dialog id="lightbox">
+  <form method="dialog" class="lb-head">
+    <span id="lb-title"></span>
+    <div class="lb-actions">
+      <button type="button" id="lb-restore" class="btn">Restore this view</button>
+      <button type="button" id="lb-overlay" class="btn">Overlay on viewport</button>
+      <a id="lb-download" class="btn primary" download>Download PNG</a>
+      <button class="btn" aria-label="Close">✕</button>
+    </div>
+  </form>
+  <div class="lb-body checker"><img id="lb-img" alt="Finished render"></div>
+</dialog>
+
+<script type="module" src="/static/viewer.js"></script>
+</body>
+</html>

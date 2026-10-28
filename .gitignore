@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.idea/
+
+# render output and converted game assets: never commit Valve / workshop content
+*.png
+*.glb
+thumbnails/
+cache/
+
+.venv/

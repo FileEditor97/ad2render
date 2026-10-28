@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ad2render"
+version = "1.0.0"
+description = "Decode and render Garry's Mod Advanced Duplicator 2 dupes"
+requires-python = ">=3.11"
+dependencies = ["Pillow>=10.1"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+ad2render = "ad2render.cli:main"
+
+[tool.setuptools]
+packages = ["ad2render"]
+
+[tool.setuptools.package-data]
+ad2render = ["viewer/*", "viewer/vendor/three/*", "viewer/vendor/three/addons/*/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
